@@ -1,0 +1,15 @@
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\bin\Debug\net6.0-windows\PinTOP.exe
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\bin\Debug\net6.0-windows\PinTOP.deps.json
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\bin\Debug\net6.0-windows\PinTOP.runtimeconfig.json
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\bin\Debug\net6.0-windows\PinTOP.dll
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\bin\Debug\net6.0-windows\PinTOP.pdb
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.csproj.AssemblyReference.cache
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.GeneratedMSBuildEditorConfig.editorconfig
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.AssemblyInfoInputs.cache
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.AssemblyInfo.cs
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.csproj.CoreCompileInputs.cache
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.dll
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\refint\PinTOP.dll
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.pdb
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.genruntimeconfig.cache
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\ref\PinTOP.dll
