@@ -5,6 +5,8 @@ using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Newtonsoft.Json;
+using System.Collections.Concurrent;
+using Newtonsoft.Json.Linq;
 
 // <!-- Publish as single Exe command -->
 // <!-- dotnet publish -r win-x64 --self-contained=false /p:PublishSingleFile=true -->
@@ -146,7 +148,7 @@ public partial class Form1 : Form
         SetWindowPos(hWnd, new IntPtr(-2), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
     }
 
-
+    public static VSTSDataProvider vSTSDataProvider;
 }
 
 public class WindowItem
@@ -207,35 +209,71 @@ public class VSTSDataProvider{
     private static string vstsBaseUrl = @"https://aspentech-alm.visualstudio.com/AspenTech/_apis/testplan/";
     public static TestPlan testPlan; 
     public static TestSutie testSutie= testPlan.ChildTestSutie;
-    public static TestCase testCase= testSutie.ChildTestCase;
+    public static ConcurrentBag<TestCase> testCases= testSutie.ChildTestCases;
 
     static readonly HttpClient httpClient=new HttpClient();
 
-//continuationToken=-2147483648;25, 这里的25指的是获取的最大ItemsJson数量.
-//          改成-1(-2147483648;-1)或者不填写(-2147483648;)就可以获取全部
-//returnIdentityRef  是否附上内容引用
-//includePointDetails 是否包含内容额外详细信息
-//isRecursive 是否递归
+    //continuationToken=-2147483648;25, 这里的25指的是获取的最大ItemsJson数量.
+    //          改成-1(-2147483648;-1)或者不填写(-2147483648;)就可以获取全部
+    //returnIdentityRef  是否附上内容引用
+    //includePointDetails 是否包含内容额外详细信息
+    //isRecursive 是否递归
 
-    public VSTSDataProvider(int testPlanID,int testSuiteID,string cookie,int itemsNum=-1,bool returnIdentityRef=false,bool includePointDetails=true,bool isRecursive=false){
+    public VSTSDataProvider(int testPlanID, int testSuiteID, string cookie, int itemsNum = -1, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
+    {
         string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestPoint";
         string query = $@"?continuationToken=-2147483648;{itemsNum}&returnIdentityRef={returnIdentityRef}&includePointDetails={includePointDetails}&isRecursive={isRecursive}";
-        string targetUrl=vstsBaseUrl+path+query;
-        if (!Uri.TryCreate(targetUrl,UriKind.Absolute,out Uri dataUri))
-        {   
+        string targetUrl = vstsBaseUrl + path + query;
+        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out Uri dataUri))
+        {
             throw new HttpRequestException("Uri Wrong. Please check uri.");
         }
-        GetDataFromVSTS(dataUri,cookie);
-    
+        testCases = await GetDataFromVSTS(dataUri, cookie);
+
     }
 
-    private async Task GetDataFromVSTS(Uri targetUrl,string cookie){
-        httpClient.DefaultRequestHeaders.Add("Cookie",cookie);
-        var responseMessage=await httpClient.GetAsync(targetUrl);
-        string responseBody=await responseMessage.Content.ReadAsStringAsync();
-        dynamic responseData=JsonConvert.DeserializeObject(responseBody);
+    private static async Task<ConcurrentBag<TestCase>> GetDataFromVSTS(Uri targetUrl, string cookie)
+    {
+        httpClient.DefaultRequestHeaders.Add("Cookie", cookie);
+        var responseMessage = await httpClient.GetAsync(targetUrl);
+        string responseBody = await responseMessage.Content.ReadAsStringAsync();
+        JToken dataList=JObject.Parse(responseBody)["value"];
 
-        int a=0;
+        // 创建 TestSutie 对象
+        TestSutie testSuite = new TestSutie
+        {
+            Name = (string)dataList[0]["testSuite"]["name"],
+            ID = (int)dataList[0]["testSuite"]["id"],
+        };
+        // 创建 TestPlan 对象
+        TestPlan testPlan = new TestPlan
+        {
+            Name = (string)dataList[0]["testPlan"]["name"],
+            ID = (int)dataList[0]["testPlan"]["id"],
+        };
+        // 设置 TC,TS,TP 对象之间的关系
+        testSuite.ParentTestPlan = testPlan;
+        testPlan.ChildTestSutie = testSuite;
+        // 清空 ChildTestCases 列表
+        testSuite.ChildTestCases.Clear();
+
+        var dataParseResults = Parallel.ForEach(dataList, tCase =>
+        {
+            // 创建 TestCase 对象
+            TestCase testCase = new TestCase
+            {
+                Name = (string)tCase["testCaseReference"]["name"],
+                ID = (int)tCase["testCaseReference"]["id"],
+                OutcomeStr = (string)tCase["results"]["outcome"],
+                IsAutomated = (bool)tCase["isAutomated"],
+            };
+            // 设置 TC,TS,TP 对象之间的关系
+            testCase.ParentTestSutie = testSuite;
+            // 将 TestCase 对象添加到 ChildTestCases 列表中
+            testSuite.ChildTestCases.Add(testCase);
+
+        });
+        return testSuite.ChildTestCases;
     }
 
 }
@@ -245,20 +283,33 @@ public enum OutcomeState{
     Active,//Unspecified
     Passed,//passed
 }
+
+//还待完善,暂定
+public enum ProductAreas{
+    HYSYS,
+    FlareNet,
+    Dynamics,
+    AOT,
+    SteadyState,
+    Upstream,
+}
+
 public class TestCase
 {
 
     public string Name { get; set; }
     public int ID { get; set; }
-    public OutcomeState Outcome { get; set; }
+    public int CQID { get; set; }
     public bool IsAutomated { get; set; }
+    public ProductAreas ProductArea {get;set;}
     public TestSutie ParentTestSutie { get; set; }
-
+    private OutcomeState _outcome { get; set; }
+    public OutcomeState Outcome => _outcome;
     public string OutcomeStr
     {
         get
         {
-            switch (Outcome)
+            switch (_outcome)
             {
                 case OutcomeState.Failed:
                     return "failed";
@@ -267,7 +318,7 @@ public class TestCase
                 case OutcomeState.Passed:
                     return "passed";
                 default:
-                    throw new InvalidOperationException($"Unexpected Outcome value: {Outcome}");
+                    throw new InvalidOperationException($"Unexpected Outcome value: {_outcome}");
             }
         }
         set
@@ -275,13 +326,13 @@ public class TestCase
             switch (value.ToLower())
             {
                 case "failed":
-                    Outcome = OutcomeState.Failed;
+                    _outcome = OutcomeState.Failed;
                     break;
                 case "unspecified": // Active对应的字符串为"unspecified"
-                    Outcome = OutcomeState.Active;
+                    _outcome = OutcomeState.Active;
                     break;
                 case "passed":
-                    Outcome = OutcomeState.Passed;
+                    _outcome = OutcomeState.Passed;
                     break;
                 default:
                     throw new ArgumentException($"Invalid Outcome value: {value}", nameof(OutcomeStr));
@@ -289,29 +340,11 @@ public class TestCase
         }
     }
 
-    // public string OutcomeStr
-    // {
-    //     get { return Outcome.ToString().ToLower(); }
-    //     set
-    //     {
-    //         if (Enum.TryParse(value, true, out OutcomeState outcomeState))
-    //         {
-    //             Outcome = outcomeState;
-    //         }else if(value.Equals("unspecified",StringComparison.OrdinalIgnoreCase)){
-    //             Outcome = OutcomeState.Active;
-    //         }
-    //         else
-    //         {
-    //             throw new ArgumentException("Invalid outcome state.", nameof(OutcomeStr));
-    //         }
-    //     }
-    // }
-
 }
 public class TestSutie{
     public string Name {get;set;}
     public int ID {get;set;}
-    public TestCase ChildTestCase{get;set;}
+    public ConcurrentBag<TestCase> ChildTestCases{get;set;}=new();
     public TestPlan ParentTestPlan{get;set;}
 
 }

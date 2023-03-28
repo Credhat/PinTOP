@@ -69,16 +69,14 @@ partial class Form1
               this.dataTable1.Columns.Add("Test Case Reference Name");
 
 
-                string jsonData = txtJsonData.Text; // 将JSON数据从TextBox中获取
-
-            // try
-            // {
-                // 将JSON数据反序列化为dynamic对象
-                dynamic jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonData);
+               ; // 将JSON数据从TextBox中获取
+            //要求用户输入,或者完整的URl,解析URl即可.
+            int testPlanId ;
+            int testSuiteId ;
+            string cookieKey;
+            vSTSDataProvider=new(testPlanId,testSuiteId,cookieKey);
 
                 // 提取所需的值
-                string testPlanId = jsonObject.testPlan.id.ToString();
-                string testSuiteId = jsonObject.testSuite.id.ToString();
                 string outcome = jsonObject.results.outcome.ToString();
                 string testCaseReferenceId = jsonObject.testCaseReference.id.ToString();
                 string testCaseReferenceName = jsonObject.testCaseReference.name.ToString();
