@@ -8,4 +8,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <PublishSingleFile>true</PublishSingleFile>
   </PropertyGroup>
+<ItemGroup>
+  <PackageReference Include="Newtonsoft.Json" Version="1.0.2.201" />
+</ItemGroup>
 </Project>

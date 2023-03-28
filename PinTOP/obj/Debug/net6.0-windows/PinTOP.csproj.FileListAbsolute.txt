@@ -13,3 +13,5 @@ F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\
 F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.pdb
 F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.genruntimeconfig.cache
 F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\ref\PinTOP.dll
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\bin\Debug\net6.0-windows\Newtonsoft.Json.dll
+F:\VSCodeDepository\Dotnet6\BetaProjects\PinTOP\PinTOP\obj\Debug\net6.0-windows\PinTOP.csproj.CopyComplete

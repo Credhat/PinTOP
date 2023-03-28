@@ -1,4 +1,6 @@
-﻿namespace PinTOP;
+﻿using Newtonsoft.Json;
+
+namespace PinTOP;
 
 
 partial class Form1
@@ -20,6 +22,8 @@ partial class Form1
             this.btnPin = new System.Windows.Forms.Button();
             this.btnUnpin = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
+            this.dataTable1= new System.Data.DataTable();
+            this.dataRow1=dataTable1.NewRow();
             this.SuspendLayout();
 
             // comboBox1
@@ -56,6 +60,38 @@ partial class Form1
             this.btnRefresh.UseVisualStyleBackColor = true;
             this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
 
+
+            // 将提取的值添加到DataGridView中
+              this.dataTable1.Columns.Add("Test Plan ID");
+              this.dataTable1.Columns.Add("Test Suite ID");
+              this.dataTable1.Columns.Add("Outcome");
+              this.dataTable1.Columns.Add("Test Case Reference ID");
+              this.dataTable1.Columns.Add("Test Case Reference Name");
+
+
+                string jsonData = txtJsonData.Text; // 将JSON数据从TextBox中获取
+
+            // try
+            // {
+                // 将JSON数据反序列化为dynamic对象
+                dynamic jsonObject = JsonConvert.DeserializeObject<dynamic>(jsonData);
+
+                // 提取所需的值
+                string testPlanId = jsonObject.testPlan.id.ToString();
+                string testSuiteId = jsonObject.testSuite.id.ToString();
+                string outcome = jsonObject.results.outcome.ToString();
+                string testCaseReferenceId = jsonObject.testCaseReference.id.ToString();
+                string testCaseReferenceName = jsonObject.testCaseReference.name.ToString();
+
+
+             dataRow1["Test Plan ID"] = testPlanId;
+             dataRow1["Test Suite ID"] = testSuiteId;
+             dataRow1["Outcome"] = outcome;
+             dataRow1["Test Case Reference ID"] = testCaseReferenceId;
+             dataRow1["Test Case Reference Name"] = testCaseReferenceName;
+
+             this.dataTable1.Rows.Add(dataRow1);
+
             // Form1
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -69,11 +105,12 @@ partial class Form1
             this.Load += new System.EventHandler(this.Form1_Load);
             this.ResumeLayout(false);
         }
-
         private System.Windows.Forms.ComboBox comboBox1;
         private System.Windows.Forms.Button btnPin;
         private System.Windows.Forms.Button btnUnpin;
         private System.Windows.Forms.Button btnRefresh;
+        private System.Data.DataRow dataRow1;
+        private System.Data.DataTable dataTable1;
     }
 
 
