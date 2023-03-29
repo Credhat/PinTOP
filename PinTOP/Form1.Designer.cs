@@ -22,8 +22,13 @@ partial class Form1
             this.btnPin = new System.Windows.Forms.Button();
             this.btnUnpin = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
+            this.btnGetData = new System.Windows.Forms.Button();
+            this.testPlanIdTextBox=new System.Windows.Forms.TextBox();
+            this.testSuiteIdTextBox=new System.Windows.Forms.TextBox();
+            this.completeUriTextBox=new System.Windows.Forms.TextBox();
+            this.cookieTextBox=new System.Windows.Forms.TextBox();
             this.dataTable1= new System.Data.DataTable();
-            this.dataRow1=dataTable1.NewRow();
+            this.dataGridView1=new System.Windows.Forms.DataGridView();
             this.SuspendLayout();
 
             // comboBox1
@@ -61,34 +66,43 @@ partial class Form1
             this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
 
 
-            // 将提取的值添加到DataGridView中
-              this.dataTable1.Columns.Add("Test Plan ID");
-              this.dataTable1.Columns.Add("Test Suite ID");
-              this.dataTable1.Columns.Add("Outcome");
-              this.dataTable1.Columns.Add("Test Case Reference ID");
-              this.dataTable1.Columns.Add("Test Case Reference Name");
+   
+
+            // 将JSON数据从TextBox中获取
+            // 要求用户输入,或者完整的URl,解析URl即可.
 
 
-               ; // 将JSON数据从TextBox中获取
-            //要求用户输入,或者完整的URl,解析URl即可.
-            int testPlanId ;
-            int testSuiteId ;
-            string cookieKey;
-            vSTSDataProvider=new(testPlanId,testSuiteId,cookieKey);
+            this.testPlanIdTextBox.Location=new System.Drawing.Point(10,70);
+            this.testPlanIdTextBox.Size=new System.Drawing.Size(80, 21);
 
-                // 提取所需的值
-                string outcome = jsonObject.results.outcome.ToString();
-                string testCaseReferenceId = jsonObject.testCaseReference.id.ToString();
-                string testCaseReferenceName = jsonObject.testCaseReference.name.ToString();
+            this.testSuiteIdTextBox.Location=new System.Drawing.Point(100,70);
+            this.testSuiteIdTextBox.Size=new System.Drawing.Size(80, 21);
+
+            this.completeUriTextBox.Location=new System.Drawing.Point(10,110);
+            this.completeUriTextBox.Size=new System.Drawing.Size(370, 21);
+
+            this.cookieTextBox.Location=new System.Drawing.Point(10,140);
+            this.cookieTextBox.Size=new System.Drawing.Size(370, 40);
+
+            // bthGetData
+            this.btnGetData.Location =new System.Drawing.Point(280,170);
+            this.btnGetData.Name="bthGetData";
+            this.btnGetData.Size=new System.Drawing.Size(75,23);
+            this.btnGetData.TabIndex = 4;
+            this.btnGetData.Text = "GetTestCases";
+            this.btnGetData.UseVisualStyleBackColor = true;
+            this.btnGetData.Click += new System.EventHandler(this.btnGetData_Click);
 
 
-             dataRow1["Test Plan ID"] = testPlanId;
-             dataRow1["Test Suite ID"] = testSuiteId;
-             dataRow1["Outcome"] = outcome;
-             dataRow1["Test Case Reference ID"] = testCaseReferenceId;
-             dataRow1["Test Case Reference Name"] = testCaseReferenceName;
+            this.dataGridView1.DataSource=dataTable1;
+            this.dataGridView1.Location=new System.Drawing.Point(400,12);
+            this.dataGridView1.Name="dataGridView";
+            this.dataGridView1.Size=new System.Drawing.Size(300,400);
+            this.dataGridView1.TabIndex = 5;
+            this.dataGridView1.Text = "DataTable";
+            // this.dataGridView1.UseVisualStyleBackColor = true;
+            // this.dataGridView1.Click += new System.EventHandler(this.btnGetData_Click);
 
-             this.dataTable1.Rows.Add(dataRow1);
 
             // Form1
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -97,17 +111,30 @@ partial class Form1
             this.Controls.Add(this.btnRefresh);
             this.Controls.Add(this.btnUnpin);
             this.Controls.Add(this.btnPin);
+            this.Controls.Add(this.btnGetData);
             this.Controls.Add(this.comboBox1);
+            this.Controls.Add(this.testPlanIdTextBox);
+            this.Controls.Add(this.testSuiteIdTextBox);
+            this.Controls.Add(this.completeUriTextBox);
+            this.Controls.Add(this.cookieTextBox);
+            this.Controls.Add(this.dataGridView1);
             this.Name = "Form1";
             this.Text = "PinWindow";
             this.Load += new System.EventHandler(this.Form1_Load);
             this.ResumeLayout(false);
         }
+
         private System.Windows.Forms.ComboBox comboBox1;
         private System.Windows.Forms.Button btnPin;
         private System.Windows.Forms.Button btnUnpin;
         private System.Windows.Forms.Button btnRefresh;
-        private System.Data.DataRow dataRow1;
+        private System.Windows.Forms.Button btnGetData;
+        private System.Windows.Forms.TextBox testPlanIdTextBox;
+        private System.Windows.Forms.TextBox testSuiteIdTextBox;
+        private System.Windows.Forms.TextBox completeUriTextBox;
+        private System.Windows.Forms.TextBox cookieTextBox;
+        // private System.Data.DataRow dataRow1;
+        private System.Windows.Forms.DataGridView dataGridView1;
         private System.Data.DataTable dataTable1;
     }
 

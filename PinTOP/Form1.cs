@@ -7,6 +7,7 @@ using System.Diagnostics;
 using Newtonsoft.Json;
 using System.Collections.Concurrent;
 using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
 
 // <!-- Publish as single Exe command -->
 // <!-- dotnet publish -r win-x64 --self-contained=false /p:PublishSingleFile=true -->
@@ -87,11 +88,11 @@ public partial class Form1 : Form
                 GetWindowThreadProcessId(hwnd, out pid);
                 // if (pid == Process.GetCurrentProcess().Id) // 只添加当前进程的窗口句柄
                 // {
-                    string title = GetWindowTitle(hwnd);
-                    if (!string.IsNullOrEmpty(title))
-                    {
-                        _windowList.Add(new WindowItem(title, hwnd));
-                    }
+                string title = GetWindowTitle(hwnd);
+                if (!string.IsNullOrEmpty(title))
+                {
+                    _windowList.Add(new WindowItem(title, hwnd));
+                }
                 // }
             }
         }
@@ -117,6 +118,7 @@ public partial class Form1 : Form
     private void btnRefresh_Click(object sender, EventArgs e)
     {
         RefreshWindowList();
+        this.dataGridView1.DataSource=this.dataTable1;
     }
 
     private void btnPin_Click(object sender, EventArgs e)
@@ -148,7 +150,84 @@ public partial class Form1 : Form
         SetWindowPos(hWnd, new IntPtr(-2), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
     }
 
-    public static VSTSDataProvider vSTSDataProvider;
+    //VSTS 获取数据
+    private async void btnGetData_Click(object sender, EventArgs e)
+    {
+        int testPlanID, testSuiteID;
+        if (int.TryParse(this.testPlanIdTextBox.Text, out testPlanID) && int.TryParse(this.testSuiteIdTextBox.Text, out testSuiteID) && !string.IsNullOrEmpty(this.cookieTextBox.Text))
+        {
+            VSTSData_ProviderInstance.VSTSDataListRefresh(testPlanID, testSuiteID, this.cookieTextBox.Text);
+
+            await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
+
+        }
+        else if (!string.IsNullOrEmpty(this.completeUriTextBox.Text) && !string.IsNullOrEmpty(this.cookieTextBox.Text))
+        {
+            VSTSData_ProviderInstance.VSTSDataListRefresh(this.completeUriTextBox.Text, this.cookieTextBox.Text);
+
+            await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
+        }
+        else
+        {
+            MessageBox.Show("Please Input Complete path or seperate ID." + Environment.NewLine + "The Cookie must be entered.", "Warning", MessageBoxButtons.OK);
+        }
+
+    }
+
+    private async Task FillDataIntoDataGird(ConcurrentBag<TestCase> dataList){
+
+        dataTable1.Clear();
+        // 将提取的值添加到DataGridView中
+        if (!this.dataTable1.Columns.Contains("Test Plan ID"))
+        {
+            this.dataTable1.Columns.Add("Test Plan ID");
+            this.dataTable1.Columns.Add("Test Suite ID");
+            this.dataTable1.Columns.Add("Test Case Reference ID");
+            this.dataTable1.Columns.Add("Test Case Reference Name");
+            this.dataTable1.Columns.Add("Outcome");
+        }
+
+
+        foreach (var tc in dataList)
+        {
+            var dataRow1 = dataTable1.NewRow();
+            dataRow1["Test Plan ID"] = tc.ParentTestSutie.ParentTestPlan.ID;
+            dataRow1["Test Suite ID"] = tc.ParentTestSutie.ID;
+            dataRow1["Test Case Reference ID"] = tc.ID;
+            dataRow1["Test Case Reference Name"] = tc.Name;
+            dataRow1["Outcome"] = tc.Outcome;
+            dataTable1.Rows.Add(dataRow1);
+        }
+        // Parallel.ForEach(dataList, tc=>
+        // {
+        //     var dataRow1 = dataTable1.NewRow();
+        //     dataRow1["Test Plan ID"] = tc.ParentTestSutie.ParentTestPlan.ID;
+        //     dataRow1["Test Suite ID"] = tc.ParentTestSutie.ID;
+        //     dataRow1["Test Case Reference ID"] = tc.ID;
+        //     dataRow1["Test Case Reference Name"] = tc.Name;
+        //     dataRow1["Outcome"] = tc.Outcome;
+        //     dataTable1.Rows.Add(dataRow1);
+        // });
+        this.dataGridView1.DataSource = null;
+        this.dataGridView1.DataSource=this.dataTable1;
+    }
+
+    private static VSTSDataProvider _vSTSData_ProviderInstance { get; set; } = new VSTSDataProvider();
+    private static readonly object _lock = new Object();
+    public static VSTSDataProvider VSTSData_ProviderInstance
+    {
+        get
+        {
+            if (_vSTSData_ProviderInstance == null)
+            {
+                lock (_lock)
+                {
+                    _vSTSData_ProviderInstance ??= new VSTSDataProvider();
+                }
+            }
+            return _vSTSData_ProviderInstance;
+        }
+    }
 }
 
 public class WindowItem
@@ -205,39 +284,63 @@ Value[
 }
 ***/
 
-public class VSTSDataProvider{
+public class VSTSDataProvider
+{
     private static string vstsBaseUrl = @"https://aspentech-alm.visualstudio.com/AspenTech/_apis/testplan/";
-    public static TestPlan testPlan; 
-    public static TestSutie testSutie= testPlan.ChildTestSutie;
-    public static ConcurrentBag<TestCase> testCases= testSutie.ChildTestCases;
+    private static TestPlan _testPlan=new ();
+    private static TestSutie _testSutie = new ();
+    private static ConcurrentBag<TestCase> _testCases = new ();
+    static readonly HttpClient httpClient = new HttpClient();
 
-    static readonly HttpClient httpClient=new HttpClient();
+    public  TestPlan TestPlan { get => _testPlan;}
+    public  TestSutie TestSutie { get => _testSutie; }
+    public  ConcurrentBag<TestCase> TestCases { get => _testCases; }
 
     //continuationToken=-2147483648;25, 这里的25指的是获取的最大ItemsJson数量.
     //          改成-1(-2147483648;-1)或者不填写(-2147483648;)就可以获取全部
     //returnIdentityRef  是否附上内容引用
     //includePointDetails 是否包含内容额外详细信息
     //isRecursive 是否递归
-
-    public VSTSDataProvider(int testPlanID, int testSuiteID, string cookie, int itemsNum = -1, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
+    public async void VSTSDataListRefresh(string completeUri, string cookie, int itemsNum = -1, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
     {
+        Uri dataUri;
+        var idDictionary = GetTestPlanSuiteID(completeUri);//解析出ID
+        int testPlanID = idDictionary["planId"];
+        int testSuiteID = idDictionary["suiteId"];
+
         string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestPoint";
         string query = $@"?continuationToken=-2147483648;{itemsNum}&returnIdentityRef={returnIdentityRef}&includePointDetails={includePointDetails}&isRecursive={isRecursive}";
         string targetUrl = vstsBaseUrl + path + query;
-        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out Uri dataUri))
+        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out dataUri))
         {
             throw new HttpRequestException("Uri Wrong. Please check uri.");
         }
-        testCases = await GetDataFromVSTS(dataUri, cookie);
+        _testCases = new (await GetDataListFromVSTS(dataUri, cookie));
+        if(GetDataListFromVSTS(dataUri, cookie).IsCompletedSuccessfully) combineRelationShip(_testCases.First().ParentTestSutie.ParentTestPlan,_testCases.First().ParentTestSutie,_testCases);
 
     }
 
-    private static async Task<ConcurrentBag<TestCase>> GetDataFromVSTS(Uri targetUrl, string cookie)
+    public async void VSTSDataListRefresh(int testPlanID, int testSuiteID, string cookie, int itemsNum = -1, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
+    {
+        Uri dataUri;
+        string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestPoint";
+        string query = $@"?continuationToken=-2147483648;{itemsNum}&returnIdentityRef={returnIdentityRef}&includePointDetails={includePointDetails}&isRecursive={isRecursive}";
+        string targetUrl = vstsBaseUrl + path + query;
+        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out dataUri))
+        {
+            throw new HttpRequestException("Uri Wrong. Please check uri.");
+        }
+        
+        _testCases =  new (await GetDataListFromVSTS(dataUri, cookie));
+        if(GetDataListFromVSTS(dataUri, cookie).IsCompletedSuccessfully) combineRelationShip(_testCases.First().ParentTestSutie.ParentTestPlan,_testCases.First().ParentTestSutie,_testCases);
+    }
+
+    private static async Task<ConcurrentBag<TestCase>> GetDataListFromVSTS(Uri targetUrl, string cookie)
     {
         httpClient.DefaultRequestHeaders.Add("Cookie", cookie);
         var responseMessage = await httpClient.GetAsync(targetUrl);
         string responseBody = await responseMessage.Content.ReadAsStringAsync();
-        JToken dataList=JObject.Parse(responseBody)["value"];
+        JToken dataList = JObject.Parse(responseBody)["value"];
 
         // 创建 TestSutie 对象
         TestSutie testSuite = new TestSutie
@@ -276,16 +379,38 @@ public class VSTSDataProvider{
         return testSuite.ChildTestCases;
     }
 
+    private Dictionary<string, int> GetTestPlanSuiteID(string completeUri)
+    {
+        Dictionary<string, int> IdDic = new Dictionary<string, int>();
+        string pattern = @"planId=(?<planId>\d+)&suiteId=(?<suiteId>\d+)";
+        RegexOptions options = RegexOptions.IgnoreCase;
+
+        Match m = Regex.Match(completeUri, pattern, options);
+        for (int i = 1; i < m.Groups.Count; i++)
+        {
+            IdDic.Add(m.Groups[i].Name, int.Parse(m.Groups[i].Value));
+        }
+        // Console.WriteLine("'{0}' 在 {1} 位置找到", m.Value, m.Index);
+        return IdDic;
+    }
+
+    private void combineRelationShip(TestPlan tp,TestSutie ts,ConcurrentBag<TestCase> testCases){
+        _testCases=testCases;
+        _testPlan=tp;
+        _testSutie=ts;
+    }
 }
 
-public enum OutcomeState{
+public enum OutcomeState
+{
     Failed,//failed
     Active,//Unspecified
     Passed,//passed
 }
 
 //还待完善,暂定
-public enum ProductAreas{
+public enum ProductAreas
+{
     HYSYS,
     FlareNet,
     Dynamics,
@@ -301,7 +426,7 @@ public class TestCase
     public int ID { get; set; }
     public int CQID { get; set; }
     public bool IsAutomated { get; set; }
-    public ProductAreas ProductArea {get;set;}
+    public ProductAreas ProductArea { get; set; }
     public TestSutie ParentTestSutie { get; set; }
     private OutcomeState _outcome { get; set; }
     public OutcomeState Outcome => _outcome;
@@ -341,16 +466,18 @@ public class TestCase
     }
 
 }
-public class TestSutie{
-    public string Name {get;set;}
-    public int ID {get;set;}
-    public ConcurrentBag<TestCase> ChildTestCases{get;set;}=new();
-    public TestPlan ParentTestPlan{get;set;}
+public class TestSutie
+{
+    public string Name { get; set; }
+    public int ID { get; set; }
+    public ConcurrentBag<TestCase> ChildTestCases { get; set; } = new();
+    public TestPlan ParentTestPlan { get; set; }
 
 }
-public class TestPlan{
-    public string Name {get;set;}
-    public int ID {get;set;}
-    public TestSutie ChildTestSutie{get;set;}
+public class TestPlan
+{
+    public string Name { get; set; }
+    public int ID { get; set; }
+    public TestSutie ChildTestSutie { get; set; }
 
 }
