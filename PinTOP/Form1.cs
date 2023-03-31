@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Net;
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -118,6 +120,7 @@ public partial class Form1 : Form
     private void btnRefresh_Click(object sender, EventArgs e)
     {
         RefreshWindowList();
+        this.dataGridView1.DataSource=null;
         this.dataGridView1.DataSource=this.dataTable1;
     }
 
@@ -155,21 +158,37 @@ public partial class Form1 : Form
     {
         int testPlanID, testSuiteID;
         if (int.TryParse(this.testPlanIdTextBox.Text, out testPlanID) && int.TryParse(this.testSuiteIdTextBox.Text, out testSuiteID) && !string.IsNullOrEmpty(this.cookieTextBox.Text))
-        {
-            VSTSData_ProviderInstance.VSTSDataListRefresh(testPlanID, testSuiteID, this.cookieTextBox.Text);
-
-            await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
-
+        {   
+            this.progressBar1.Visible=true;
+            VSTSData_ProviderInstance.VSTSDataListRefresh(testPlanID,
+                                                        testSuiteID,
+                                                        this.cookieTextBox.Text,async ()=>{
+                                                            await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
+                                                            this.progressBar1.Visible=false;
+                                                        });
+            Console.WriteLine("ButtonClicked Done");
         }
         else if (!string.IsNullOrEmpty(this.completeUriTextBox.Text) && !string.IsNullOrEmpty(this.cookieTextBox.Text))
         {
-            VSTSData_ProviderInstance.VSTSDataListRefresh(this.completeUriTextBox.Text, this.cookieTextBox.Text);
+            this.progressBar1.Visible=true;
+            bool succeedMatchID=false;
+            var IDGroups= VSTSDataProvider.TryGetTestPlanSuiteID(this.completeUriTextBox.Text,out succeedMatchID);
+            if(succeedMatchID){
+                this.testPlanIdTextBox.Text=IDGroups["planId"].ToString();
+                this.testSuiteIdTextBox.Text=IDGroups["suiteId"].ToString();
+            }
 
-            await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
+            VSTSData_ProviderInstance.VSTSDataListRefresh(
+                                            this.completeUriTextBox.Text,
+                                            this.cookieTextBox.Text,async ()=>{
+                                                await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
+                                                this.progressBar1.Visible=false;
+                                            });
+            Console.WriteLine("ButtonClicked Done.");
         }
         else
         {
-            MessageBox.Show("Please Input Complete path or seperate ID." + Environment.NewLine + "The Cookie must be entered.", "Warning", MessageBoxButtons.OK);
+            MessageBox.Show("Please Input Complete path or separate ID." + Environment.NewLine + "The Cookie must be entered.", "Warning", MessageBoxButtons.OK);
         }
 
     }
@@ -177,6 +196,7 @@ public partial class Form1 : Form
     private async Task FillDataIntoDataGird(ConcurrentBag<TestCase> dataList){
 
         dataTable1.Clear();
+        this.dataGridView1.DataSource = null;
         // 将提取的值添加到DataGridView中
         if (!this.dataTable1.Columns.Contains("Test Plan ID"))
         {
@@ -187,17 +207,17 @@ public partial class Form1 : Form
             this.dataTable1.Columns.Add("Outcome");
         }
 
-
-        foreach (var tc in dataList)
-        {
-            var dataRow1 = dataTable1.NewRow();
-            dataRow1["Test Plan ID"] = tc.ParentTestSutie.ParentTestPlan.ID;
-            dataRow1["Test Suite ID"] = tc.ParentTestSutie.ID;
-            dataRow1["Test Case Reference ID"] = tc.ID;
-            dataRow1["Test Case Reference Name"] = tc.Name;
-            dataRow1["Outcome"] = tc.Outcome;
-            dataTable1.Rows.Add(dataRow1);
-        }
+        Parallel.ForEach(dataList, tc =>
+           {
+               var dataRow1 = dataTable1.NewRow();
+               dataRow1["Test Plan ID"] = tc.ParentTestSutie.ParentTestPlan.ID;
+               dataRow1["Test Suite ID"] = tc.ParentTestSutie.ID;
+               dataRow1["Test Case Reference ID"] = tc.ID;
+               dataRow1["Test Case Reference Name"] = tc.Name;
+               dataRow1["Outcome"] = tc.Outcome;
+               dataTable1.Rows.Add(dataRow1);
+           });
+      
         // Parallel.ForEach(dataList, tc=>
         // {
         //     var dataRow1 = dataTable1.NewRow();
@@ -208,8 +228,10 @@ public partial class Form1 : Form
         //     dataRow1["Outcome"] = tc.Outcome;
         //     dataTable1.Rows.Add(dataRow1);
         // });
-        this.dataGridView1.DataSource = null;
+        System.Console.WriteLine("Start Load Data");
         this.dataGridView1.DataSource=this.dataTable1;
+        System.Console.WriteLine("End Load Data");
+
     }
 
     private static VSTSDataProvider _vSTSData_ProviderInstance { get; set; } = new VSTSDataProvider();
@@ -287,24 +309,32 @@ Value[
 public class VSTSDataProvider
 {
     private static string vstsBaseUrl = @"https://aspentech-alm.visualstudio.com/AspenTech/_apis/testplan/";
-    private static TestPlan _testPlan=new ();
+    private static TestPlan _testPlan= new ();
     private static TestSutie _testSutie = new ();
     private static ConcurrentBag<TestCase> _testCases = new ();
-    static readonly HttpClient httpClient = new HttpClient();
+    private static readonly HttpClient httpClient = new HttpClient();
 
     public  TestPlan TestPlan { get => _testPlan;}
     public  TestSutie TestSutie { get => _testSutie; }
     public  ConcurrentBag<TestCase> TestCases { get => _testCases; }
 
+    public static bool _testCasesLoadedOver=false;
+
+    public bool IsTestCasesLoaded { get=> _testCasesLoadedOver;}
+
     //continuationToken=-2147483648;25, 这里的25指的是获取的最大ItemsJson数量.
-    //          改成-1(-2147483648;-1)或者不填写(-2147483648;)就可以获取全部
+    //          改成-1(-2147483648;-1)或者不填写(-2147483648;)就可以获取最多200
     //returnIdentityRef  是否附上内容引用
     //includePointDetails 是否包含内容额外详细信息
     //isRecursive 是否递归
-    public async void VSTSDataListRefresh(string completeUri, string cookie, int itemsNum = -1, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
+    public async void VSTSDataListRefresh(string completeUri, string cookie, Action action,int itemsNum = 2000, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
     {
         Uri dataUri;
-        var idDictionary = GetTestPlanSuiteID(completeUri);//解析出ID
+        bool succeedMatchID=false;
+        var idDictionary = TryGetTestPlanSuiteID(completeUri,out succeedMatchID);//解析出ID
+
+        if(!succeedMatchID){ MessageBox.Show("Path Not Right."); return;}
+
         int testPlanID = idDictionary["planId"];
         int testSuiteID = idDictionary["suiteId"];
 
@@ -315,12 +345,11 @@ public class VSTSDataProvider
         {
             throw new HttpRequestException("Uri Wrong. Please check uri.");
         }
-        _testCases = new (await GetDataListFromVSTS(dataUri, cookie));
-        if(GetDataListFromVSTS(dataUri, cookie).IsCompletedSuccessfully) combineRelationShip(_testCases.First().ParentTestSutie.ParentTestPlan,_testCases.First().ParentTestSutie,_testCases);
+        await GetDataListFromVSTS(dataUri, cookie,action);
 
     }
 
-    public async void VSTSDataListRefresh(int testPlanID, int testSuiteID, string cookie, int itemsNum = -1, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
+    public async void VSTSDataListRefresh(int testPlanID, int testSuiteID, string cookie, Action action,int itemsNum = 2000, bool returnIdentityRef = false, bool includePointDetails = true, bool isRecursive = false)
     {
         Uri dataUri;
         string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestPoint";
@@ -330,15 +359,31 @@ public class VSTSDataProvider
         {
             throw new HttpRequestException("Uri Wrong. Please check uri.");
         }
-        
-        _testCases =  new (await GetDataListFromVSTS(dataUri, cookie));
-        if(GetDataListFromVSTS(dataUri, cookie).IsCompletedSuccessfully) combineRelationShip(_testCases.First().ParentTestSutie.ParentTestPlan,_testCases.First().ParentTestSutie,_testCases);
+        await GetDataListFromVSTS(dataUri,cookie,action);
     }
 
-    private static async Task<ConcurrentBag<TestCase>> GetDataListFromVSTS(Uri targetUrl, string cookie)
+    private static async Task<ConcurrentBag<TestCase>> GetDataListFromVSTS(Uri targetUrl, string cookie,Action callBackAction)
     {
-        httpClient.DefaultRequestHeaders.Add("Cookie", cookie);
+        if (!httpClient.DefaultRequestHeaders.Contains("Cookie"))  httpClient.DefaultRequestHeaders.Add("Cookie", cookie);
+        
         var responseMessage = await httpClient.GetAsync(targetUrl);
+
+        if (responseMessage.StatusCode!=HttpStatusCode.OK)
+        {
+
+          var btnClick =  MessageBox.Show(responseMessage.ReasonPhrase+Environment.NewLine+responseMessage.ToString(),responseMessage.ReasonPhrase,MessageBoxButtons.RetryCancel,MessageBoxIcon.Error);
+          
+          if (btnClick==DialogResult.Retry){
+                GetDataListFromVSTS(targetUrl,cookie,callBackAction); 
+                return null;
+            }
+            else{
+                callBackAction();
+                return null;
+            }
+
+        }
+
         string responseBody = await responseMessage.Content.ReadAsStringAsync();
         JToken dataList = JObject.Parse(responseBody)["value"];
 
@@ -360,7 +405,7 @@ public class VSTSDataProvider
         // 清空 ChildTestCases 列表
         testSuite.ChildTestCases.Clear();
 
-        var dataParseResults = Parallel.ForEach(dataList, tCase =>
+        var ParallelResult= Parallel.ForEach(dataList, tCase =>
         {
             // 创建 TestCase 对象
             TestCase testCase = new TestCase
@@ -376,11 +421,27 @@ public class VSTSDataProvider
             testSuite.ChildTestCases.Add(testCase);
 
         });
+
+
+        int iCycleTime=0;
+        while(!ParallelResult.IsCompleted && iCycleTime++ < 10){await Task.Delay(1000);};
+
+        ActionWhenAsyncDone+=()=>{ 
+            System.Console.WriteLine("Testcases Load Start");
+            _testCases=testSuite.ChildTestCases; 
+            combineRelationShip(_testCases.First().ParentTestSutie.ParentTestPlan,_testCases.First().ParentTestSutie,_testCases);
+            System.Console.WriteLine("RelationShip Adjust over");
+            _testCasesLoadedOver = true;
+            };
+
+        ActionWhenAsyncDone();
+        callBackAction();
         return testSuite.ChildTestCases;
     }
-
-    private Dictionary<string, int> GetTestPlanSuiteID(string completeUri)
+    
+    public static Dictionary<string, int> TryGetTestPlanSuiteID(string completeUri,out bool succeedMatch)
     {
+        succeedMatch=false;
         Dictionary<string, int> IdDic = new Dictionary<string, int>();
         string pattern = @"planId=(?<planId>\d+)&suiteId=(?<suiteId>\d+)";
         RegexOptions options = RegexOptions.IgnoreCase;
@@ -390,15 +451,17 @@ public class VSTSDataProvider
         {
             IdDic.Add(m.Groups[i].Name, int.Parse(m.Groups[i].Value));
         }
-        // Console.WriteLine("'{0}' 在 {1} 位置找到", m.Value, m.Index);
+        succeedMatch=m.Success;
         return IdDic;
     }
 
-    private void combineRelationShip(TestPlan tp,TestSutie ts,ConcurrentBag<TestCase> testCases){
+    private static void combineRelationShip(TestPlan tp,TestSutie ts,ConcurrentBag<TestCase> testCases){
         _testCases=testCases;
         _testPlan=tp;
         _testSutie=ts;
     }
+
+    public static Action ActionWhenAsyncDone;
 }
 
 public enum OutcomeState
