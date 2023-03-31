@@ -153,11 +153,8 @@ public partial class Form1 : Form
 
     //VSTS 获取数据
     private async void btnDataTableRefresh_Click(object sender,EventArgs e){
-        Task.Run(() =>
-        {
             this.dataGridView1.DataSource = null;
             this.dataGridView1.DataSource = this.dataTable1;
-        });
     }
     private async void btnGetData_Click(object sender, EventArgs e)
     {
@@ -212,16 +209,16 @@ public partial class Form1 : Form
             this.dataTable1.Columns.Add("Outcome");
         }
 
-        Parallel.ForEach(dataList, tc =>
-           {
-               var dataRow1 = dataTable1.NewRow();
-               dataRow1["Test Plan ID"] = tc.ParentTestSutie.ParentTestPlan.ID;
-               dataRow1["Test Suite ID"] = tc.ParentTestSutie.ID;
-               dataRow1["Test Case Reference ID"] = tc.ID;
-               dataRow1["Test Case Reference Name"] = tc.Name;
-               dataRow1["Outcome"] = tc.Outcome;
-               dataTable1.Rows.Add(dataRow1);
-           });
+        foreach (var tc in dataList)
+        {
+            var dataRow1 = dataTable1.NewRow();
+            dataRow1["Test Plan ID"] = tc.ParentTestSutie.ParentTestPlan.ID;
+            dataRow1["Test Suite ID"] = tc.ParentTestSutie.ID;
+            dataRow1["Test Case Reference ID"] = tc.ID;
+            dataRow1["Test Case Reference Name"] = tc.Name;
+            dataRow1["Outcome"] = tc.Outcome;
+            dataTable1.Rows.Add(dataRow1);
+        };
       
         // Parallel.ForEach(dataList, tc=>
         // {
