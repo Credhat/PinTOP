@@ -120,8 +120,6 @@ public partial class Form1 : Form
     private void btnRefresh_Click(object sender, EventArgs e)
     {
         RefreshWindowList();
-        this.dataGridView1.DataSource=null;
-        this.dataGridView1.DataSource=this.dataTable1;
     }
 
     private void btnPin_Click(object sender, EventArgs e)
@@ -154,6 +152,13 @@ public partial class Form1 : Form
     }
 
     //VSTS 获取数据
+    private async void btnDataTableRefresh_Click(object sender,EventArgs e){
+        Task.Run(() =>
+        {
+            this.dataGridView1.DataSource = null;
+            this.dataGridView1.DataSource = this.dataTable1;
+        });
+    }
     private async void btnGetData_Click(object sender, EventArgs e)
     {
         int testPlanID, testSuiteID;

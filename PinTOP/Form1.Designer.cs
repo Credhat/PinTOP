@@ -23,6 +23,7 @@ partial class Form1
             this.btnUnpin = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.btnGetData = new System.Windows.Forms.Button();
+            this.btnDataTableRefresh = new System.Windows.Forms.Button();
             this.testPlanIdLabel=new System.Windows.Forms.Label();
             this.testSuiteIdLabel=new System.Windows.Forms.Label();
             this.completeUriLabel=new System.Windows.Forms.Label();
@@ -107,7 +108,7 @@ partial class Form1
 
             //ProgressBar
             this.progressBar1.Location = new System.Drawing.Point(10, 191+StartY);
-            this.progressBar1.Size = new System.Drawing.Size(280,22);
+            this.progressBar1.Size = new System.Drawing.Size(185,22);
             this.progressBar1.Style = ProgressBarStyle.Marquee;
             this.progressBar1.MarqueeAnimationSpeed=1;
             this.progressBar1.Visible = false;
@@ -115,10 +116,20 @@ partial class Form1
             // this.progressBar1.Minimum=0;
 
             // bthGetData
+            this.btnDataTableRefresh.Location =new System.Drawing.Point(200,190+StartY);
+            this.btnDataTableRefresh.Name="btnDataTableRefresh";
+            // this.btnDataTableRefresh.Size=new System.Drawing.Size(100,24);
+            this.btnDataTableRefresh.AutoSize=true;
+            this.btnDataTableRefresh.TabIndex = 4;
+            this.btnDataTableRefresh.Text = "Refresh DataTable";
+            this.btnDataTableRefresh.UseVisualStyleBackColor = true;
+            this.btnDataTableRefresh.Click += new System.EventHandler(this.btnDataTableRefresh_Click);
+
+            // bthGetData
             this.btnGetData.Location =new System.Drawing.Point(305,190+StartY);
             this.btnGetData.Name="bthGetData";
             this.btnGetData.Size=new System.Drawing.Size(75,24);
-            this.btnGetData.TabIndex = 4;
+            this.btnGetData.TabIndex = 5;
             this.btnGetData.Text = "GetTestCases";
             this.btnGetData.UseVisualStyleBackColor = true;
             this.btnGetData.Click += new System.EventHandler(this.btnGetData_Click);
@@ -128,8 +139,8 @@ partial class Form1
             this.dataGridView1.DataSource=dataTable1;
             this.dataGridView1.Location=new System.Drawing.Point(400,12);
             this.dataGridView1.Name="dataGridView";
-            this.dataGridView1.Size=new System.Drawing.Size(800,400);
-            this.dataGridView1.TabIndex = 5;
+            this.dataGridView1.Size=new System.Drawing.Size(600,400);
+            this.dataGridView1.TabIndex = 6;
             this.dataGridView1.Text = "DataTable";
             // this.dataGridView1.UseVisualStyleBackColor = true;
             // this.dataGridView1.Click += new System.EventHandler(this.btnGetData_Click);
@@ -138,11 +149,12 @@ partial class Form1
             // Form1
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(394, 74);
+            this.ClientSize = new System.Drawing.Size(394, 284);
             this.Controls.Add(this.btnRefresh);
             this.Controls.Add(this.btnUnpin);
             this.Controls.Add(this.btnPin);
             this.Controls.Add(this.btnGetData);
+            this.Controls.Add(this.btnDataTableRefresh);
             this.Controls.Add(this.comboBox1);
             this.Controls.Add(this.testPlanIdLabel);
             this.Controls.Add(this.testSuiteIdLabel);
@@ -165,6 +177,7 @@ partial class Form1
         private System.Windows.Forms.Button btnUnpin;
         private System.Windows.Forms.Button btnRefresh;
         private System.Windows.Forms.Button btnGetData;
+        private System.Windows.Forms.Button btnDataTableRefresh;
         private System.Windows.Forms.Label testPlanIdLabel;
         private System.Windows.Forms.Label testSuiteIdLabel;
         private System.Windows.Forms.Label completeUriLabel;

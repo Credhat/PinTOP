@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "BMGpqWQDyHLtqIqeBe29yoSd4fak2D0MyFsVdtB0kJ0i9zQLyWhGi8vFOTsQ66tTUQ/NQlNeeNVq5wj+KoY7SA==",
+  "dgSpecHash": "1111amxpZqKmwaj80LRisVpFqHNW6HrsL49I19PhPU6TkINmEf8Tc5ldPexoM4i/3aZ5ILqFHo/xBFbhPi0/HQ==",
   "success": true,
   "projectFilePath": "F:\\VSCodeDepository\\Dotnet6\\BetaProjects\\PinTOP\\PinTOP\\PinTOP.csproj",
   "expectedPackageFiles": [
@@ -14,8 +14,7 @@
       "message": "PinTOP depends on Newtonsoft.Json (>= 1.0.2.201) but Newtonsoft.Json 1.0.2.201 was not found. An approximate best match of Newtonsoft.Json 3.5.8 was resolved.",
       "libraryId": "Newtonsoft.Json",
       "targetGraphs": [
-        "net6.0-windows7.0",
-        "net6.0-windows7.0/win-x64"
+        "net6.0-windows7.0"
       ]
     },
     {
