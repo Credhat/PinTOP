@@ -22,6 +22,7 @@ partial class Form1
             this.btnPin = new System.Windows.Forms.Button();
             this.btnUnpin = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
+            this.btnGetExecuteData = new System.Windows.Forms.Button();
             this.btnGetData = new System.Windows.Forms.Button();
             this.btnDataTableRefresh = new System.Windows.Forms.Button();
             this.testPlanIdLabel=new System.Windows.Forms.Label();
@@ -115,8 +116,8 @@ partial class Form1
             // this.progressBar1.Maximum=100;
             // this.progressBar1.Minimum=0;
 
-            // bthGetData
-            this.btnDataTableRefresh.Location =new System.Drawing.Point(200,190+StartY);
+            // bthRefreshData
+            this.btnDataTableRefresh.Location =new System.Drawing.Point(110,190+StartY);
             this.btnDataTableRefresh.Name="btnDataTableRefresh";
             // this.btnDataTableRefresh.Size=new System.Drawing.Size(100,24);
             this.btnDataTableRefresh.AutoSize=true;
@@ -124,6 +125,15 @@ partial class Form1
             this.btnDataTableRefresh.Text = "Refresh DataTable";
             this.btnDataTableRefresh.UseVisualStyleBackColor = true;
             this.btnDataTableRefresh.Click += new System.EventHandler(this.btnDataTableRefresh_Click);
+
+            // btnGetExecuteData
+            this.btnGetExecuteData.Location =new System.Drawing.Point(215,190+StartY);
+            this.btnGetExecuteData.Name="btnGetExecuteData";
+            this.btnGetExecuteData.Size=new System.Drawing.Size(75,24);
+            this.btnGetExecuteData.TabIndex = 5;
+            this.btnGetExecuteData.Text = "GetExecuteTC";
+            this.btnGetExecuteData.UseVisualStyleBackColor = true;
+            this.btnGetExecuteData.Click += new System.EventHandler(this.btnGetExecuteData_Click);
 
             // bthGetData
             this.btnGetData.Location =new System.Drawing.Point(305,190+StartY);
@@ -154,6 +164,7 @@ partial class Form1
             this.Controls.Add(this.btnUnpin);
             this.Controls.Add(this.btnPin);
             this.Controls.Add(this.btnGetData);
+            this.Controls.Add(this.btnGetExecuteData);
             this.Controls.Add(this.btnDataTableRefresh);
             this.Controls.Add(this.comboBox1);
             this.Controls.Add(this.testPlanIdLabel);
@@ -176,6 +187,7 @@ partial class Form1
         private System.Windows.Forms.Button btnPin;
         private System.Windows.Forms.Button btnUnpin;
         private System.Windows.Forms.Button btnRefresh;
+        private System.Windows.Forms.Button btnGetExecuteData;
         private System.Windows.Forms.Button btnGetData;
         private System.Windows.Forms.Button btnDataTableRefresh;
         private System.Windows.Forms.Label testPlanIdLabel;

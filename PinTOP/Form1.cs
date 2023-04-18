@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.VisualBasic.CompilerServices;
 using System.Globalization;
 using System.Net;
@@ -157,6 +158,48 @@ public partial class Form1 : Form
     {
         this.dataGridView1.DataSource = null;
         this.dataGridView1.DataSource = this.dataTable1;
+    }
+
+    private async void btnGetExecuteData_Click(object sender, EventArgs e)
+    {
+        int testPlanID, testSuiteID;
+        if (int.TryParse(this.testPlanIdTextBox.Text, out testPlanID) && int.TryParse(this.testSuiteIdTextBox.Text, out testSuiteID) && !string.IsNullOrEmpty(this.cookieTextBox.Text))
+        {
+            this.progressBar1.Visible = true;
+            VSTSData_ProviderInstance.VSTSDataListRefreshExecute(testPlanID,
+                                                        testSuiteID,
+                                                        this.cookieTextBox.Text, async () =>
+                                                        {
+                                                            await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
+                                                            this.progressBar1.Visible = false;
+                                                        });
+            Console.WriteLine("ButtonClicked Done");
+        }
+        else if (!string.IsNullOrEmpty(this.completeUriTextBox.Text) && !string.IsNullOrEmpty(this.cookieTextBox.Text))
+        {
+            this.progressBar1.Visible = true;
+            bool succeedMatchID = false;
+            var IDGroups = VSTSDataProvider.TryGetTestPlanSuiteID(this.completeUriTextBox.Text, out succeedMatchID);
+            if (succeedMatchID)
+            {
+                this.testPlanIdTextBox.Text = IDGroups["planId"].ToString();
+                this.testSuiteIdTextBox.Text = IDGroups["suiteId"].ToString();
+            }
+
+            VSTSData_ProviderInstance.VSTSDataListRefreshExecute(
+                                            this.completeUriTextBox.Text,
+                                            this.cookieTextBox.Text, async () =>
+                                            {
+                                                await FillDataIntoDataGird(VSTSData_ProviderInstance.TestCases);
+                                                this.progressBar1.Visible = false;
+                                            });
+            Console.WriteLine("ButtonClicked Done.");
+        }
+        else
+        {
+            MessageBox.Show("Please Input Complete path or separate ID." + Environment.NewLine + "The Cookie must be entered.", "Warning", MessageBoxButtons.OK);
+        }
+
     }
     private async void btnGetData_Click(object sender, EventArgs e)
     {
@@ -330,13 +373,12 @@ public class VSTSDataProvider
     private static TestSutie _testSutie = new();
     private static ConcurrentBag<TestCase> _testCases = new();
     private static readonly HttpClient httpClient = new HttpClient();
+    public static bool _testCasesLoadedOver = false;
+
 
     public TestPlan TestPlan { get => _testPlan; }
     public TestSutie TestSutie { get => _testSutie; }
     public ConcurrentBag<TestCase> TestCases { get => _testCases; }
-
-    public static bool _testCasesLoadedOver = false;
-
     public bool IsTestCasesLoaded { get => _testCasesLoadedOver; }
 
     //continuationToken=-2147483648;25, 这里的25指的是获取的最大ItemsJson数量.
@@ -357,11 +399,14 @@ public class VSTSDataProvider
 
         string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestPoint";
         string query = $@"?continuationToken=-2147483648;{itemsNum}&returnIdentityRef={returnIdentityRef}&includePointDetails={includePointDetails}&isRecursive={isRecursive}";
+
         string targetUrl = vstsBaseUrl + path + query;
+
         if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out dataUri))
         {
             throw new HttpRequestException("Uri Wrong. Please check uri.");
         }
+
         await GetDataListFromVSTS(dataUri, cookie, action);
 
     }
@@ -379,6 +424,65 @@ public class VSTSDataProvider
         await GetDataListFromVSTS(dataUri, cookie, action);
     }
 
+    public async void VSTSDataListRefreshExecute(string completeUri, string cookie, Action action, int itemsNum = 2000, bool expand = true, bool returnIdentityRef = false, int excludeFlags = 0, bool isRecursive = false)
+    {
+        Uri dataUri;
+        bool succeedMatchID = false;
+        var idDictionary = TryGetTestPlanSuiteID(completeUri, out succeedMatchID);//解析出ID
+
+        if (!succeedMatchID) { MessageBox.Show("Path Not Right."); return; }
+
+        int testPlanID = idDictionary["planId"];
+        int testSuiteID = idDictionary["suiteId"];
+
+        // string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestPoint";
+        // string query = $@"?continuationToken=-2147483648;{itemsNum}&returnIdentityRef={returnIdentityRef}&includePointDetails={includePointDetails}&isRecursive={isRecursive}";
+
+        string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestCase";
+        string query = $@"?witFields=System.Id%2C" +
+        "Aspentech.Common.ProductName%2C" +
+        "Aspentech.Common.ProductArea%2C" +
+        "Aspentech.Common.CQID%2C" +
+        "Aspentech.TestCase.TestTool%2C" +
+        "Aspentech.TestCase.ScriptName%2C" +
+        "Aspentech.common.SubmitDate%2C" +
+        "System.AreaPath" +
+        $@"&continuationToken=0%3B{itemsNum}&expand={expand}&returnIdentityRef={returnIdentityRef}&excludeFlags={excludeFlags}&isRecursive={isRecursive}";
+
+        string targetUrl = vstsBaseUrl + path + query;
+
+        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out dataUri))
+        {
+            throw new HttpRequestException("Uri Wrong. Please check uri.");
+        }
+
+        await GetDataListFromVSTSExecute(dataUri, cookie, action);
+
+    }
+
+    public async void VSTSDataListRefreshExecute(int testPlanID, int testSuiteID, string cookie, Action action, int itemsNum = 2000, bool expand = true, bool returnIdentityRef = false, int excludeFlags = 0, bool isRecursive = false)
+    {
+        Uri dataUri;
+
+        string path = $@"Plans/{testPlanID}/Suites/{testSuiteID}/TestCase";
+        string query = $@"?witFields=System.Id%2C" +
+        "Aspentech.Common.ProductName%2C" +
+        "Aspentech.Common.ProductArea%2C" +
+        "Aspentech.Common.CQID%2C" +
+        "Aspentech.TestCase.TestTool%2C" +
+        "Aspentech.TestCase.ScriptName%2C" +
+        "Aspentech.common.SubmitDate%2C" +
+        "System.AreaPath" +
+        $@"&continuationToken=0%3B{itemsNum}&expand={expand}&returnIdentityRef={returnIdentityRef}&excludeFlags={excludeFlags}&isRecursive={isRecursive}";
+
+        string targetUrl = vstsBaseUrl + path + query;
+        if (!Uri.TryCreate(targetUrl, UriKind.Absolute, out dataUri))
+        {
+            throw new HttpRequestException("Uri Wrong. Please check uri.");
+        }
+        await GetDataListFromVSTSExecute(dataUri, cookie, action);
+    }
+
     private static async Task<ConcurrentBag<TestCase>> GetDataListFromVSTS(Uri targetUrl, string cookie, Action callBackAction)
     {
         if (!httpClient.DefaultRequestHeaders.Contains("Cookie")) httpClient.DefaultRequestHeaders.Add("Cookie", cookie);
@@ -387,7 +491,6 @@ public class VSTSDataProvider
 
         if (responseMessage.StatusCode != HttpStatusCode.OK)
         {
-
             var btnClick = MessageBox.Show(responseMessage.ReasonPhrase + Environment.NewLine + responseMessage.ToString(), responseMessage.ReasonPhrase, MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
 
             if (btnClick == DialogResult.Retry)
@@ -405,21 +508,24 @@ public class VSTSDataProvider
 
         string responseBody = await responseMessage.Content.ReadAsStringAsync();
         JToken dataList = JObject.Parse(responseBody)["value"];
-        var aabdb=dataList[0]["testSuite"];
-
         // 创建 TestSutie 对象
-        TestSutie testSuite = new TestSutie
-        {
-            Name = (string)dataList[0]["testSuite"]["name"],
-            ID = (int)dataList[0]["testSuite"]["id"],
-        };
+        // TestSutie testSuite = new TestSutie
+        // {
+        //     Name = (string)dataList[0]["testSuite"]["name"],
+        //     ID = (int)dataList[0]["testSuite"]["id"],
+        // };
+        TestSutie testSuite = NewTestObject<TestSutie>(dataList[0]["testSuite"]);
+
+
         // 创建 TestPlan 对象
-        TestPlan testPlan = new TestPlan
-        {
-            Name = (string)dataList[0]["testPlan"]["name"],
-            ID = (int)dataList[0]["testPlan"]["id"],
-        };
+        // TestPlan testPlan = new TestPlan
+        // {
+        //     Name = (string)dataList[0]["testPlan"]["name"],
+        //     ID = (int)dataList[0]["testPlan"]["id"],
+        // };
         // 设置 TC,TS,TP 对象之间的关系
+        TestPlan testPlan = NewTestObject<TestPlan>(dataList[0]["testPlan"]);
+
         testSuite.ParentTestPlan = testPlan;
         testPlan.ChildTestSutie = testSuite;
         // 清空 ChildTestCases 列表
@@ -460,17 +566,93 @@ public class VSTSDataProvider
         return testSuite.ChildTestCases;
     }
 
-    public T NewTestObject<T>(JToken targetJToken)
-    where T: ITestObject,new()
+    private static async Task<ConcurrentBag<TestCase>> GetDataListFromVSTSExecute(Uri targetUrl, string cookie, Action callBackAction)
     {
-        return new T{
-            Name = (string)targetJToken.FirstOrDefault(id=>id.Contains("name")),
-            ID = (int)targetJToken.FirstOrDefault(id=>id.Contains("id")),
+        if (!httpClient.DefaultRequestHeaders.Contains("Cookie")) httpClient.DefaultRequestHeaders.Add("Cookie", cookie);
+
+        var responseMessage = await httpClient.GetAsync(targetUrl);
+
+        if (responseMessage.StatusCode != HttpStatusCode.OK)
+        {
+            var btnClick = MessageBox.Show(responseMessage.ReasonPhrase + Environment.NewLine + responseMessage.ToString(), responseMessage.ReasonPhrase, MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
+
+            if (btnClick == DialogResult.Retry)
+            {
+                GetDataListFromVSTS(targetUrl, cookie, callBackAction);
+                return null;
+            }
+            else
+            {
+                callBackAction();
+                return null;
+            }
+
+        }
+
+        string responseBody = await responseMessage.Content.ReadAsStringAsync();
+        JToken dataList = JObject.Parse(responseBody)["value"];
+        var aabdb = dataList[0]["testSuite"];
+
+        // 创建 TestSutie 对象
+        TestSutie testSuite = NewTestObject<TestSutie>(dataList[0]["testSuite"]);
+
+        // 创建 TestPlan 对象
+        TestPlan testPlan = NewTestObject<TestPlan>(dataList[0]["testPlan"]);
+
+        // 设置 TC,TS,TP 对象之间的关系
+        testSuite.ParentTestPlan = testPlan;
+        testPlan.ChildTestSutie = testSuite;
+        // 清空 ChildTestCases 列表
+        testSuite.ChildTestCases.Clear();
+
+        var ParallelResult = Parallel.ForEach(dataList, tCase =>
+        {
+            // 创建 TestCase 对象
+            TestCase testCase = new TestCase
+            {
+                Name = (string)tCase["workItem"]["name"],
+                ID = (int)tCase["workItem"]["id"],
+                //TODO 避免无匹配元素异常
+                TestToolStr=(string)tCase["workItem"]["workItemFields"]?.First(jt=>jt.ToString().Contains("TestTool"))?.Value<string>(),
+                ScriptName=(string)tCase["workItem"]["workItemFields"]?.First(jt=>jt.ToString().Contains("ScriptName"))?.Value<string>(),
+            };
+            // 设置 TC,TS,TP 对象之间的关系
+            testCase.ParentTestSutie = testSuite;
+            // 将 TestCase 对象添加到 ChildTestCases 列表中
+            testSuite.ChildTestCases.Add(testCase);
+
+        });
+
+
+        int iCycleTime = 0;
+        while (!ParallelResult.IsCompleted && iCycleTime++ < 10) { await Task.Delay(1000); };
+
+        ActionWhenAsyncDone += () =>
+        {
+            System.Console.WriteLine("Testcases Load Start");
+            _testCases = testSuite.ChildTestCases;
+            combineRelationShip(_testCases.First().ParentTestSutie.ParentTestPlan, _testCases.First().ParentTestSutie, _testCases);
+            System.Console.WriteLine("RelationShip Adjust over");
+            _testCasesLoadedOver = true;
         };
-    } 
 
-
-
+        ActionWhenAsyncDone();
+        callBackAction();
+        return testSuite.ChildTestCases;
+    }
+    public static T NewTestObject<T>(JToken targetJToken)
+    where T : ITestObject, new()
+    {
+        return new T
+        {
+            Name = (string)targetJToken["name"],
+            ID = (int)targetJToken["id"]
+        };
+        // return new T{
+        //     Name = (string)targetJToken.FirstOrDefault(id=>id.Contains("name")),
+        //     ID = (int)targetJToken.FirstOrDefault(id=>id.Contains("id")),
+        // };
+    }
 
     public static Dictionary<string, int> TryGetTestPlanSuiteID(string completeUri, out bool succeedMatch)
     {
@@ -500,11 +682,29 @@ public class VSTSDataProvider
 
 public enum OutcomeState
 {
+    [StringValue("failed")]
     Failed,//failed
-    Active,//Unspecified
+
+    [StringValue("unspecified")]
+    Active,//unspecified
+
+    [StringValue("passed")]
     Passed,//passed
 }
 
+public enum TestTools
+{
+
+    [StringValue]
+    SilkTest,
+
+    [StringValue]
+    Silk4Net,
+
+    [StringValue]
+    UFT,
+
+}
 //还待完善,暂定
 public enum ProductAreas
 {
@@ -531,31 +731,47 @@ public enum ProductAreas
     Upstream,
 }
 
-public class TestPoint:ITestObject
+public class TestPoint : ITestObject
 {
-    public string Name {get;set;}
-    public int ID {get;set;}
-    public int TestPointId{get;set;}
-    public string Configuration{get;set;}
-    public string AssignedTo{get;set;}
-    public string RunBy {get;set;}
+    public string Name { get; set; }
+    public int ID { get; set; }
+    public int TestPointId { get; set; }
+    public string Configuration { get; set; }
+    public string AssignedTo { get; set; }
+    public string RunBy { get; set; }
 
 }
 
-public class TestCase:ITestObject
+public class TestCase : ITestObject
 {
 
     public string Name { get; set; }
     public int ID { get; set; }
     public int CQID { get; set; }
     public bool IsAutomated { get; set; }
-    public TestPoint TestPoint {get;set;}
-    private ProductAreas _productArea {get;set;}
+    public string? ScriptName{ get; set; }
+    private TestTools _testTools { get; set; }
+    public TestTools? TestTool { get => _testTools; }
+    public TestPoint? SelfTestPoint { get; set; }
+    private ProductAreas _productArea { get; set; }
     public ProductAreas ProductArea => _productArea;
     public TestSutie ParentTestSutie { get; set; }
     private OutcomeState _outcome { get; set; }
     public OutcomeState Outcome => _outcome;
-    public string OutcomeStr
+
+    public string? TestToolStr
+    {
+        get => _testTools.GetStringValue();
+        set => _testTools = value.SetEnumValueIgnoreCase<TestTools>();
+    }
+
+    // public string OutcomeStr
+    // {
+    //     get => _outcome.GetStringValue();
+    //     set => _outcome = value.SetEnumValueIgnoreCase<OutcomeState>();
+    // }
+
+    public string? OutcomeStr
     {
         get
         {
@@ -590,14 +806,17 @@ public class TestCase:ITestObject
         }
     }
 
+
     //有待完善
-    public string ProductAreaStr{
-        get{
-        return "";
-            }
+    public string ProductAreaStr
+    {
+        get
+        {
+            return "";
+        }
     }
 }
-public class TestSutie:ITestObject
+public class TestSutie : ITestObject
 {
     public string Name { get; set; }
     public int ID { get; set; }
@@ -605,33 +824,37 @@ public class TestSutie:ITestObject
     public TestPlan ParentTestPlan { get; set; }
 
 }
-public class TestPlan:ITestObject
+public class TestPlan : ITestObject
 {
     public string Name { get; set; }
     public int ID { get; set; }
     public TestSutie ChildTestSutie { get; set; }
 }
 
-public interface ITestObject{
+public interface ITestObject
+{
     public string Name { get; set; }
     public int ID { get; set; }
-
 }
 
 
 
 //OTE Enhancement Offline Export file Struct
-public class OTE_FileStruct{
-   public int TestCaseId{ get; set; }
-   public string Title { get; set; }
-   public readonly string TestStep = string.Empty;
-   public readonly string StepAction = string.Empty;
-   public readonly string StepExpected = string.Empty;
-   public int TestPointId { get; set; }
-   public string Configuration { get; set; }
-   public string AssignedTo { get; set; }
-   public string Outcome { get; set; }
-   public readonly string Comment = string.Empty;
-   public readonly string Defects = string.Empty;
-   public string RunBy { get; set; }
+public class OTE_FileStruct
+{
+    public int TestCaseId { get; set; }
+    public string Title { get; set; }
+    public readonly string TestStep = string.Empty;
+    public readonly string StepAction = string.Empty;
+    public readonly string StepExpected = string.Empty;
+    public int TestPointId { get; set; }
+    public string Configuration { get; set; }
+    public string AssignedTo { get; set; }
+    public string Outcome { get; set; }
+    public readonly string Comment = string.Empty;
+    public readonly string Defects = string.Empty;
+    public string RunBy { get; set; }
 }
+
+
+
